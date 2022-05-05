@@ -10,6 +10,7 @@ import java.util.List;
 import com.javadocmd.simplelatlng.LatLng;
 
 import it.polito.tdp.metroparis.model.Connessione;
+import it.polito.tdp.metroparis.model.CoppiaId;
 import it.polito.tdp.metroparis.model.Fermata;
 import it.polito.tdp.metroparis.model.Linea;
 
@@ -68,7 +69,100 @@ public class MetroDAO {
 
 		return linee;
 	}
+	
+	/**
+	 * esiste almeno una connessione tra partenza e arrivo
+	 * @param partenza
+	 * @param arrivo
+	 * @return
+	 */
+	public boolean isFermateConnesse(Fermata partenza, Fermata arrivo) {
+		String sql = "select count(*) as cnt "
+				+ "from connessione "
+				+ "where `id_stazP` = ? and `id_stazA` = ?";
+				
+		try {
+			Connection conn = DBConnect.getConnection();
+			PreparedStatement st = conn.prepareStatement(sql);
+			st.setInt(1, partenza.getIdFermata());
+			st.setInt(2, arrivo.getIdFermata());
+			ResultSet rs = st.executeQuery();
 
+			rs.first();
+			int count = rs.getInt("cnt");
+
+			st.close();
+			conn.close();
+			return count > 0;
+
+		} catch (SQLException e) {
+			e.printStackTrace();
+			throw new RuntimeException("Errore di connessione al Database.");
+		}
+	}
+
+	public List<Integer> getIdFermateConnesse(Fermata partenza) {
+		// TODO Auto-generated method stub
+		String sql = "select id_stazA "
+				+ "from connessione "
+				+ "where `id_stazP` = ? "
+				+ "group by `id_stazA`";
+		
+		List<Integer> result = new ArrayList<Integer>();
+		
+		try {
+			Connection conn = DBConnect.getConnection();
+			PreparedStatement st = conn.prepareStatement(sql);
+			st.setInt(1, partenza.getIdFermata());
+			ResultSet rs = st.executeQuery();
+
+			while (rs.next()) {
+				result.add(rs.getInt("id_stazA"));
+			}
+
+			st.close();
+			conn.close();
+			return result;
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return null;
+		}
+		
+	}
+	
+	public List<Fermata> getFermateConnesse(Fermata partenza) {
+		String sql = "";
+		
+		List<Fermata> result = new ArrayList<Fermata>();
+		
+		// TODO
+		
+		return result;
+	}
+	
+	public List<CoppiaId> getAllFermateConnesse() {
+		String sql = "select distinct `id_stazP`, `id_stazA` "
+				+ "from connessione";
+		
+		List<CoppiaId> result = new ArrayList<CoppiaId>();
+		
+		try {
+			Connection conn = DBConnect.getConnection();
+			PreparedStatement st = conn.prepareStatement(sql);
+			ResultSet rs = st.executeQuery();
+
+			while (rs.next()) {
+				result.add(new CoppiaId(rs.getInt("id_stazP"), rs.getInt("id_stazA")));
+			}
+
+			st.close();
+			conn.close();
+			return result;
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
 	
 
 }
