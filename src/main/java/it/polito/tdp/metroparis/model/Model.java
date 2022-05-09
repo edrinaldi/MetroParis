@@ -1,5 +1,6 @@
 package it.polito.tdp.metroparis.model;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,21 +18,33 @@ import it.polito.tdp.metroparis.db.MetroDAO;
 public class Model {
 
 	private Graph<Fermata, DefaultEdge> grafo;
+	MetroDAO dao;
+	private List<Fermata> fermate;
+	Map<Integer, Fermata> fermateIdMap;
+	
+	public List<Fermata> getFermate() {
+		if (this.fermate == null) {
+			// e' la prima volta che chiamo il metodo
+			this.dao = new MetroDAO();
+			this.fermate = this.dao.getAllFermate();	// query impostata in ord alfab
+			
+			this.fermateIdMap = new HashMap<Integer, Fermata>();
+			for (Fermata f : this.fermate) {
+				fermateIdMap.put(f.getIdFermata(), f);
+			}
+		}
+		return this.fermate;
+	}
 	
 	public void creaGrafo() {
 		// istanziamo la struttura dati (il grafo stesso)
 		this.grafo = new SimpleDirectedGraph<Fermata, DefaultEdge>(DefaultEdge.class);
 		
-		MetroDAO dao = new MetroDAO();
-		List<Fermata> fermate = dao.getAllFermate();
-		Map<Integer, Fermata> fermateIdMap = new HashMap<Integer, Fermata>();
+		// inseriamo tutti i vertici
+		Graphs.addAllVertices(this.grafo, this.getFermate());	// meglio di this.fermate
+																// (progr difensiva)
 		
-		for (Fermata f : fermate) {
-			fermateIdMap.put(f.getIdFermata(), f);
-		}
-		
-		Graphs.addAllVertices(this.grafo, fermate);
-		
+		// inseriamo tutti gli archi
 		// METODO 1: itero su ogni coppia di vertici (NON SEMPRE e' il piu' lento!
 		//										      es. grafi piccoli)
 		/*
@@ -89,6 +102,7 @@ public class Model {
 
 		// METODO 3: faccio un'unica query che mi restituisca le coppie di fermate connesse
 		// variante preferita: 3c (identity map)
+		this.dao = new MetroDAO();
 		List<CoppiaId> fermateDaCollegare = dao.getAllFermateConnesse();
 		for (CoppiaId c : fermateDaCollegare) {
 			Fermata partenza = fermateIdMap.get(c.getIdPartenza());
@@ -96,20 +110,49 @@ public class Model {
 			this.grafo.addEdge(partenza, arrivo);
 		}
 
-		
-		// System.out.println(this.grafo);
-		System.out.println("Vertici: " + this.grafo.vertexSet().size());
-		System.out.println("Archi: " + this.grafo.edgeSet().size());
+//		System.out.println(this.grafo);
+//		System.out.println("Vertici: " + this.grafo.vertexSet().size());
+//		System.out.println("Archi: " + this.grafo.edgeSet().size());
 
-		this.visitaGrafo(fermate.get(0));
+//		this.visitaGrafo(fermate.get(0));
 	}
 
-	public void visitaGrafo(Fermata partenza) {
+	public List<Fermata> calcolaPercorso(Fermata partenza, Fermata arrivo) {
+		this.creaGrafo();
+		Map<Fermata, Fermata> alberoInverso = this.visitaGrafo(partenza);
+		Fermata corrente = arrivo;
+		List<Fermata> percorso = new ArrayList<>();
+		while (corrente != null) {
+			percorso.add(0, corrente);
+			corrente = alberoInverso.get(corrente);
+		}
+		return percorso;
+	}
+	
+	public Map<Fermata, Fermata> visitaGrafo(Fermata partenza) {
 		GraphIterator<Fermata, DefaultEdge> visita = 
-				new DepthFirstIterator<Fermata, DefaultEdge>(this.grafo, partenza);
+				new BreadthFirstIterator<Fermata, DefaultEdge>(this.grafo, partenza);
+		
+		Map<Fermata, Fermata> alberoInverso = new HashMap<>();
+		// aggiungo la radice, che non ha vertice padre
+		alberoInverso.put(partenza, null);
+		
+		visita.addTraversalListener(new RegistraAlberoDiVisita(alberoInverso, this.grafo));
 		while(visita.hasNext()) {
 			Fermata f = visita.next();
-			System.out.println(f);
+//			System.out.println(f + "\n");
 		}
+		
+		return alberoInverso;
+		
+		// ho l'albero inverso, posso ricostruire il percorso
+		// TODO
+//		List<Fermata> percorso = new ArrayList<>();
+//		fermata = arrivo;
+//		while(fermata != null) {
+//			fermata = alberoInverso.get(fermata);
+//		}
 	}
+	
+	
 }
